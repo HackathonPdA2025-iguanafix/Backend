@@ -22,6 +22,15 @@ export class ChatbotService {
       throw new BadRequestException('Gemini API key não configurada');
     }
 
+    // Buscar dados do provider para verificar completude
+    const provider = await this.prisma.provider.findUnique({
+      where: { id: userId },
+    });
+
+    if (!provider) {
+      throw new BadRequestException('Provider não encontrado');
+    }
+
     // Inicializar ou recuperar histórico do usuário
     const conversationId = userId || 'default';
     if (!this.conversationHistories.has(conversationId)) {
@@ -161,7 +170,7 @@ Responda SEMPRE em português brasileiro com linguagem natural e amigável.`;
         // FALLBACK: Respostas simuladas quando a API falha
         if (apiError.response?.data?.error?.code === 429) {
           console.log('⚠️ Usando modo FALLBACK - Quota da API excedida');
-          assistantMessage = this.generateFallbackResponse(message, history);
+          assistantMessage = this.generateFallbackResponse(message, history, provider);
         } else {
           throw apiError;
         }
@@ -176,6 +185,23 @@ Responda SEMPRE em português brasileiro com linguagem natural e amigável.`;
       // Extrair dados estruturados da mensagem do usuário
       const extractedData = this.extractStructuredData(message);
 
+      // Se dados foram extraídos, atualizar o provider no banco
+      if (Object.keys(extractedData).length > 0) {
+        await this.prisma.provider.update({
+          where: { id: userId },
+          data: extractedData,
+        });
+        console.log('✅ Dados atualizados no banco:', extractedData);
+        
+        // Rebuscar o provider atualizado para verificações futuras
+        const updatedProvider = await this.prisma.provider.findUnique({
+          where: { id: userId },
+        });
+        
+        // Atualizar objeto provider local
+        Object.assign(provider, updatedProvider);
+      }
+
       return {
         response: assistantMessage,
         extractedData,
@@ -187,14 +213,104 @@ Responda SEMPRE em português brasileiro com linguagem natural e amigável.`;
     }
   }
 
+  // Verificar se uma etapa foi completada baseado nos dados do provider
+  private checkStageCompletion(provider: any): {
+    etapa1: boolean;
+    etapa2: boolean;
+    etapa3: boolean;
+    etapa4: boolean;
+    etapa5: boolean;
+  } {
+    const completion = {
+      etapa1: !!(provider.rg && provider.estado && provider.cidade && provider.cep),
+      etapa2: !!(provider.estadoInteresse && provider.cidadeInteresse && provider.categorias),
+      etapa3: !!(provider.referencias && provider.referencias.length >= 2),
+      etapa4: !!(provider.pixTipo && provider.pixChave && provider.bancoNome && provider.agencia && provider.conta),
+      etapa5: !!(provider.fotoPerfil && provider.fotoDocumento && provider.certidaoAntecedentes),
+    };
+
+    console.log('🔍 Verificação de completude:', {
+      etapa1: { completa: completion.etapa1, campos: { rg: provider.rg, estado: provider.estado, cidade: provider.cidade, cep: provider.cep } },
+      etapa2: { completa: completion.etapa2, campos: { estadoInteresse: provider.estadoInteresse, cidadeInteresse: provider.cidadeInteresse, categorias: provider.categorias } },
+      etapa3: { completa: completion.etapa3, campos: { referencias: provider.referencias } },
+      etapa4: { completa: completion.etapa4, campos: { pixTipo: provider.pixTipo, pixChave: provider.pixChave, bancoNome: provider.bancoNome } },
+      etapa5: { completa: completion.etapa5, campos: { fotoPerfil: provider.fotoPerfil, fotoDocumento: provider.fotoDocumento } },
+    });
+
+    return completion;
+  }
+
   // Método de fallback para quando a API do Gemini não está disponível
-  private generateFallbackResponse(message: string, history: ConversationMessage[]): string {
+  private generateFallbackResponse(message: string, history: ConversationMessage[], provider: any): string {
     const lowerMessage = message.toLowerCase();
     const historyLength = history.filter(h => h.role === 'user').length;
     const historyText = history.map(h => h.content.toLowerCase()).join(' ');
+    
+    // Verificar completude de cada etapa
+    const completion = this.checkStageCompletion(provider);
 
-    // ETAPA 1: Primeira interação - Solicitar informações pessoais
-    if (historyLength === 1) {
+    // Detectar solicitação explícita de etapa - mas verificar se pode ir para ela
+    if (/etapa\s*2|região|categorias|serviços|trabalhar onde/i.test(message) && !(/eletricista|encanador|pedreiro/i.test(message))) {
+      if (!completion.etapa1) {
+        return '⚠️ **Ops!** Você ainda precisa completar a **ETAPA 1** antes.\n\n📋 Preciso das suas informações pessoais:\n- RG\n- Estado e Cidade\n- CEP\n- Bairro, Logradouro e Número\n\nPor favor, me envie esses dados primeiro! 😊';
+      }
+      return '✅ Entendido! Vamos para a **ETAPA 2**.\n\n🗺️ **ETAPA 2: Região de Interesse e Serviços**\n\nAgora preciso saber:\n\n1. Em qual **Estado** e **Cidade** você deseja trabalhar? (pode ser diferente do seu endereço)\n2. Qual(is) **categoria(s) de serviço** você oferece?\n\n**Categorias disponíveis:**\n- Eletricista\n- Encanador\n- Pedreiro\n- Pintor\n- Carpinteiro\n- Mecânico\n- Jardineiro\n- Limpeza\n- Consultoria\n\nExemplo: "Quero trabalhar em SP, São Paulo. Sou eletricista e encanador"';
+    }
+
+    if (/etapa\s*3|referências|experiência|contatos/i.test(message) && !(/\(\d{2}\)\s?\d{4,5}-?\d{4}/i.test(message))) {
+      if (!completion.etapa1 || !completion.etapa2) {
+        const missing = [];
+        if (!completion.etapa1) missing.push('**ETAPA 1** (Informações Pessoais)');
+        if (!completion.etapa2) missing.push('**ETAPA 2** (Região e Serviços)');
+        return `⚠️ **Ops!** Você ainda precisa completar:\n\n${missing.join('\n')}\n\nPor favor, complete as etapas anteriores primeiro! 😊`;
+      }
+      return '✅ Ok! Vamos para a **ETAPA 3**.\n\n📜 **ETAPA 3: Experiência e Referências**\n\nPara validar seu perfil, preciso de **referências profissionais** (obrigatório - mínimo 2):\n\n- Nome completo\n- Telefone de contato\n- Telefone alternativo (opcional)\n\nExemplo: "João Silva (11) 98765-4321, Maria Santos (21) 91234-5678"\n\n💡 Se tiver certificados de experiência, poderá enviá-los na última etapa.';
+    }
+
+    if (/etapa\s*4|dados fiscais|bancários|pix|cnpj/i.test(message) && !(/\d{2}\.\d{3}\.\d{3}\/\d{4}/i.test(message))) {
+      if (!completion.etapa1 || !completion.etapa2 || !completion.etapa3) {
+        const missing = [];
+        if (!completion.etapa1) missing.push('**ETAPA 1** (Informações Pessoais)');
+        if (!completion.etapa2) missing.push('**ETAPA 2** (Região e Serviços)');
+        if (!completion.etapa3) missing.push('**ETAPA 3** (Referências)');
+        return `⚠️ **Ops!** Você ainda precisa completar:\n\n${missing.join('\n')}\n\nPor favor, complete as etapas anteriores primeiro! 😊`;
+      }
+      return '✅ Perfeito! Vamos para a **ETAPA 4**.\n\n💰 **ETAPA 4: Dados Fiscais e Bancários**\n\nPreciso dos seus dados para recebimento:\n\n**Se você é MEI ou tem CNPJ:**\n- Razão Social\n- CNPJ\n- Tipo de conta: PF ou PJ\n\n**Dados bancários (obrigatório):**\n- Tipo de chave PIX (CPF, CNPJ, E-mail, Telefone ou Aleatória)\n- Chave PIX\n- Nome do Banco\n- Agência\n- Conta\n- Nome do Titular\n- Documento do Titular (CPF ou CNPJ)\n\n📌 Os dados de recebimento devem ser PF ou PJ, não pode misturar!\n\nExemplo: "CNPJ: 12.345.678/0001-90, Razão: João Silva MEI, Tipo: PF, PIX: CPF 123.456.789-01, Banco: Itaú, Agência: 1234, Conta: 56789-0, Titular: João Silva, Doc: 123.456.789-01"';
+    }
+
+    if (/etapa\s*5|documentos|fotos|upload|enviar arquivos/i.test(message) && !(/enviado|enviei/i.test(message))) {
+      if (!completion.etapa1 || !completion.etapa2 || !completion.etapa3 || !completion.etapa4) {
+        const missing = [];
+        if (!completion.etapa1) missing.push('**ETAPA 1** (Informações Pessoais)');
+        if (!completion.etapa2) missing.push('**ETAPA 2** (Região e Serviços)');
+        if (!completion.etapa3) missing.push('**ETAPA 3** (Referências)');
+        if (!completion.etapa4) missing.push('**ETAPA 4** (Dados Fiscais)');
+        return `⚠️ **Ops!** Você ainda precisa completar:\n\n${missing.join('\n')}\n\nPor favor, complete as etapas anteriores primeiro! 😊`;
+      }
+      return '✅ Ótimo! Vamos para a **ETAPA 5 (FINAL)**.\n\n📸 **ETAPA 5: Fotos e Documentos (FINAL)**\n\nAgora só falta enviar os documentos obrigatórios:\n\n1. **Foto de Perfil**\n   - Fundo claro\n   - Camisa escura sem estampa\n   - Olhando para câmera\n   - Braços cruzados\n   - Sem acessórios\n\n2. **Foto do Documento** (CNH ou RG - frente e verso)\n\n3. **Certidão de Antecedentes Criminais**\n\n4. **Cartão CNPJ ou Comprovante MEI** (se aplicável)\n\n5. **Certificados de Experiência** (opcional - carteira de trabalho, cartas de recomendação)\n\n💡 **Como enviar:**\nFaça upload em /upload/single ou /upload/multiple e depois me confirme: "Documentos enviados"';
+    }
+
+    // Sempre permitir voltar para Etapa 1
+    if (/etapa\s*1|informações pessoais|começar|reiniciar|rg\s*\?|endereço\s*\?/i.test(message)) {
+      return '👋 Claro! Vamos para a **ETAPA 1**.\n\n📋 **ETAPA 1: Informações Pessoais e Endereço**\n\nPara começar, preciso de:\n\n1. Número do seu **RG**\n2. **Estado** e **Cidade** onde você mora\n3. **CEP**\n4. **Bairro**, **Logradouro** e **Número**\n\nExemplo: "RG: 123456789, Estado: SP, Cidade: São Paulo, CEP: 01310-100, Bairro: Bela Vista, Rua: Av Paulista, Número: 1000"\n\nPode me enviar tudo em uma única mensagem! 😊';
+    }
+
+    // ETAPA 1: Primeira interação - Sol - VERIFICAR SE TUDO FOI COMPLETO
+    if ((historyText.includes('upload') || historyText.includes('documento') || historyText.includes('foto') || historyText.includes('enviei') || historyText.includes('enviado')) && historyLength > 5) {
+      // Verificar se TODAS as etapas foram completadas
+      const allComplete = completion.etapa1 && completion.etapa2 && completion.etapa3 && completion.etapa4 && completion.etapa5;
+      
+      if (!allComplete) {
+        const missing = [];
+        if (!completion.etapa1) missing.push('❌ **ETAPA 1** - Informações Pessoais');
+        if (!completion.etapa2) missing.push('❌ **ETAPA 2** - Região e Serviços');
+        if (!completion.etapa3) missing.push('❌ **ETAPA 3** - Referências');
+        if (!completion.etapa4) missing.push('❌ **ETAPA 4** - Dados Fiscais');
+        if (!completion.etapa5) missing.push('❌ **ETAPA 5** - Documentos');
+        
+        return `⚠️ **Quase lá!** Mas ainda faltam algumas etapas:\n\n${missing.join('\n')}\n\n**Completadas:**\n${completion.etapa1 ? '✅ ETAPA 1\n' : ''}${completion.etapa2 ? '✅ ETAPA 2\n' : ''}${completion.etapa3 ? '✅ ETAPA 3\n' : ''}${completion.etapa4 ? '✅ ETAPA 4\n' : ''}${completion.etapa5 ? '✅ ETAPA 5\n' : ''}\nPor favor, complete as etapas pendentes para finalizar seu cadastro! 😊`;
+      }
+      
       return '👋 Olá! Sou a **Iamanos**, sua assistente de cadastro da IguanaFix!\n\nVejo que você já completou seu cadastro básico. Agora vamos finalizar seu perfil profissional seguindo algumas etapas simples.\n\n📋 **ETAPA 1: Informações Pessoais e Endereço**\n\nPara começar, preciso de:\n\n1. Número do seu **RG**\n2. **Estado** e **Cidade** onde você mora\n3. **CEP**\n4. **Bairro**, **Logradouro** e **Número**\n\nExemplo: "RG: 123456789, Estado: SP, Cidade: São Paulo, CEP: 01310-100, Bairro: Bela Vista, Rua: Av Paulista, Número: 1000"\n\nPode me enviar tudo em uma única mensagem! 😊';
     }
 
@@ -320,15 +436,125 @@ Analise se o valor está no formato correto. Responda APENAS em JSON:
     }
 
     // Telefone
-    const phoneMatch = message.match(/\(?\d{2}\)?\s?\d{4,5}-?\d{4}/);
-    if (phoneMatch) {
-      data.telefone = phoneMatch[0];
+    const phoneMatch = message.match(/\(?\d{2}\)?\s?\d{4,5}-?\d{4}/g);
+    if (phoneMatch && phoneMatch.length > 0) {
+      // Se tem múltiplos telefones, são referências
+      if (phoneMatch.length >= 2) {
+        data.referencias = JSON.stringify(phoneMatch.map(tel => ({ telefone: tel })));
+      } else {
+        data.telefone = phoneMatch[0];
+      }
     }
 
     // RG
     const rgMatch = message.match(/\bRG:?\s*(\d+)/i);
     if (rgMatch) {
       data.rg = rgMatch[1];
+    }
+
+    // Estado (buscar padrões como "Estado: SP" ou "SP" isolado)
+    const estadoMatch = message.match(/\bEstado:?\s*([A-Z]{2})\b/i) || message.match(/\b(SP|RJ|MG|ES|PR|SC|RS|BA|SE|AL|PE|PB|RN|CE|PI|MA|PA|AP|RR|AM|AC|RO|MT|MS|GO|DF|TO)\b/);
+    if (estadoMatch) {
+      data.estado = estadoMatch[1].toUpperCase();
+    }
+
+    // Cidade
+    const cidadeMatch = message.match(/\bCidade:?\s*([^,\n]+?)(?=,|\.|;|$)/i);
+    if (cidadeMatch) {
+      data.cidade = cidadeMatch[1].trim();
+    }
+
+    // Bairro
+    const bairroMatch = message.match(/\bBairro:?\s*([^,\n]+?)(?=,|\.|;|$)/i);
+    if (bairroMatch) {
+      data.bairro = bairroMatch[1].trim();
+    }
+
+    // Logradouro (Rua/Av)
+    const logradouroMatch = message.match(/\b(?:Rua|Avenida|Av):?\s*([^,\n]+?)(?=,|\.|;|Número|$)/i);
+    if (logradouroMatch) {
+      data.logradouro = logradouroMatch[0].trim();
+    }
+
+    // Número
+    const numeroMatch = message.match(/\bNúmero:?\s*(\d+)/i) || message.match(/\bn[°º]:?\s*(\d+)/i);
+    if (numeroMatch) {
+      data.numero = numeroMatch[1];
+    }
+
+    // Complemento
+    const complementoMatch = message.match(/\bComplemento:?\s*([^,\n]+?)(?=,|\.|;|$)/i);
+    if (complementoMatch) {
+      data.complemento = complementoMatch[1].trim();
+    }
+
+    // Categorias de serviço
+    const categorias = [];
+    if (/eletricista/i.test(message)) categorias.push('Eletricista');
+    if (/encanador/i.test(message)) categorias.push('Encanador');
+    if (/pedreiro/i.test(message)) categorias.push('Pedreiro');
+    if (/pintor/i.test(message)) categorias.push('Pintor');
+    if (/carpinteiro|marceneiro/i.test(message)) categorias.push('Carpinteiro');
+    if (/mecânico/i.test(message)) categorias.push('Mecânico');
+    if (/jardineiro/i.test(message)) categorias.push('Jardineiro');
+    if (/limpeza/i.test(message)) categorias.push('Limpeza');
+    if (/consultoria/i.test(message)) categorias.push('Consultoria');
+    
+    if (categorias.length > 0) {
+      data.categorias = JSON.stringify(categorias);
+    }
+
+    // Estado e Cidade de interesse (trabalhar em)
+    const trabalharMatch = message.match(/\btrabalhar\s+em\s+([A-Z]{2})[,\s]+([^,.\n]+)/i);
+    if (trabalharMatch) {
+      data.estadoInteresse = trabalharMatch[1].toUpperCase();
+      data.cidadeInteresse = trabalharMatch[2].trim();
+    }
+
+    // Dados bancários
+    const pixTipoMatch = message.match(/\bPIX:?\s*(CPF|CNPJ|E-mail|Telefone|Aleatória)/i);
+    if (pixTipoMatch) {
+      data.pixTipo = pixTipoMatch[1];
+    }
+
+    const pixChaveMatch = message.match(/\bPIX:?\s*(?:CPF|CNPJ|E-mail|Telefone|Aleatória)?\s*([^\s,]+)/i);
+    if (pixChaveMatch) {
+      data.pixChave = pixChaveMatch[1];
+    }
+
+    const bancoMatch = message.match(/\bBanco:?\s*([^,\n]+?)(?=,|\.|;|Agência|$)/i);
+    if (bancoMatch) {
+      data.bancoNome = bancoMatch[1].trim();
+    }
+
+    const agenciaMatch = message.match(/\bAgência:?\s*(\d+)/i);
+    if (agenciaMatch) {
+      data.agencia = agenciaMatch[1];
+    }
+
+    const contaMatch = message.match(/\bConta:?\s*([\d-]+)/i);
+    if (contaMatch) {
+      data.conta = contaMatch[1];
+    }
+
+    const titularMatch = message.match(/\bTitular:?\s*([^,\n]+?)(?=,|\.|;|Doc|$)/i);
+    if (titularMatch) {
+      data.titularNome = titularMatch[1].trim();
+    }
+
+    const titularDocMatch = message.match(/\bDoc:?\s*([\d.-\/]+)/i);
+    if (titularDocMatch) {
+      data.titularDoc = titularDocMatch[1];
+    }
+
+    const razaoMatch = message.match(/\bRazão(?:\s+Social)?:?\s*([^,\n]+?)(?=,|\.|;|CNPJ|Tipo|$)/i);
+    if (razaoMatch) {
+      data.razaoSocial = razaoMatch[1].trim();
+    }
+
+    const tipoContaMatch = message.match(/\bTipo(?:\s+de\s+conta)?:?\s*(PF|PJ)/i);
+    if (tipoContaMatch) {
+      data.tipoConta = tipoContaMatch[1].toUpperCase();
     }
 
     return data;
