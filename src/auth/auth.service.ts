@@ -29,12 +29,21 @@ export class AuthService {
       const validated = RegisterSchema.parse(data);
 
       // Verificar se email já existe
-      const existingProvider = await this.prisma.provider.findUnique({
+      const existingEmail = await this.prisma.provider.findUnique({
         where: { email: validated.email },
       });
 
-      if (existingProvider) {
+      if (existingEmail) {
         throw new BadRequestException('Email já registrado');
+      }
+
+      // Verificar se CPF já existe
+      const existingCpf = await this.prisma.provider.findUnique({
+        where: { cpf: validated.cpf },
+      });
+
+      if (existingCpf) {
+        throw new BadRequestException('CPF já registrado');
       }
 
       const hashedPassword = await bcrypt.hash(validated.senha, 10);
