@@ -12,11 +12,52 @@ datasource db {
 
 model Provider {
   id            String   @id @default(cuid())
+  
+  // Dados básicos (Formulário inicial)
   email         String   @unique
   senha         String
   nome          String
-  cpfCnpj       String   @unique
-  areaAtuacao   String
+  cpf           String   @unique
+  
+  // Seção 1: Fotos e Documentos
+  fotoPerfil    String?
+  fotoDocumento String?
+  certidaoAntecedentes String?
+  
+  // Seção 2: Informações Pessoais e Endereço
+  rg            String?
+  estado        String?
+  cidade        String?
+  cep           String?
+  bairro        String?
+  logradouro    String?
+  numero        String?
+  complemento   String?
+  
+  // Seção 3: Região de Interesse e Serviços
+  estadoInteresse String?
+  cidadeInteresse String?
+  categorias      String?  // JSON array de categorias
+  
+  // Seção 4: Experiência e Referências
+  certificados    String?  // JSON array de URLs
+  referencias     String?  // JSON array de objetos {nome, telefone, telefoneAlternativo}
+  
+  // Seção 5: Dados Fiscais
+  cnpjDoc         String?
+  razaoSocial     String?
+  cnpj            String?  @unique
+  tipoConta       String?  // PF ou PJ
+  pixTipo         String?
+  pixChave        String?
+  bancoNome       String?
+  agencia         String?
+  conta           String?
+  titularNome     String?
+  titularDoc      String?
+  
+  // Controle
+  cadastroCompleto Boolean  @default(false)
   status        String   @default("pendente") // pendente, aprovado, rejeitado
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt

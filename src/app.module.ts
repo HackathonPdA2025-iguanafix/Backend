@@ -6,6 +6,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { ProvidersModule } from './providers/providers.module';
 import { ChatbotModule } from './chatbot/chatbot.module';
+import { UploadModule } from './upload/upload.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { ChatbotModule } from './chatbot/chatbot.module';
     AuthModule,
     ProvidersModule,
     ChatbotModule,
+    UploadModule,
   ],
 })
 export class AppModule {}

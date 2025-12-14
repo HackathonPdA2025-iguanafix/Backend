@@ -11,9 +11,10 @@ export class ProvidersService {
         id: true,
         email: true,
         nome: true,
-        areaAtuacao: true,
+        categorias: true,
         status: true,
         createdAt: true,
+        cadastroCompleto: true,
       },
     });
   }
@@ -25,10 +26,15 @@ export class ProvidersService {
         id: true,
         email: true,
         nome: true,
-        cpfCnpj: true,
-        areaAtuacao: true,
+        cpf: true,
+        categorias: true,
         status: true,
         createdAt: true,
+        cadastroCompleto: true,
+        rg: true,
+        estado: true,
+        cidade: true,
+        cep: true,
       },
     });
 
