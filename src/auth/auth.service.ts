@@ -150,6 +150,7 @@ throw new BadRequestException(error.issues[0].message);
       nome: provider.nome,
       cpf: provider.cpf,
       rg: provider.rg,
+      telefone: provider.telefone,
       estado: provider.estado,
       cidade: provider.cidade,
       cep: provider.cep,

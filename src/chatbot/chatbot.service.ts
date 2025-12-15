@@ -77,6 +77,7 @@ O usuário já criou sua conta básica (nome, e-mail, CPF e senha). Agora você 
 
    **Seção 2: Informações Pessoais e Endereço**
    - RG
+   - Telefone (formato (XX) XXXXX-XXXX ou (XX) XXXX-XXXX)
    - Estado
    - Cidade
    - CEP
@@ -227,7 +228,7 @@ Responda SEMPRE em português brasileiro com linguagem natural e amigável.`;
     etapa5: boolean;
   } {
     const completion = {
-      etapa1: !!(provider.rg && provider.estado && provider.cidade && provider.cep),
+      etapa1: !!(provider.rg && provider.telefone && provider.estado && provider.cidade && provider.cep),
       etapa2: !!(provider.estadoInteresse && provider.cidadeInteresse && provider.categorias),
       etapa3: !!(provider.referencias && provider.referencias.length >= 2),
       etapa4: !!(provider.pixTipo && provider.pixChave && provider.bancoNome && provider.agencia && provider.conta),
@@ -235,7 +236,7 @@ Responda SEMPRE em português brasileiro com linguagem natural e amigável.`;
     };
 
     console.log('🔍 Verificação de completude:', {
-      etapa1: { completa: completion.etapa1, campos: { rg: provider.rg, estado: provider.estado, cidade: provider.cidade, cep: provider.cep } },
+      etapa1: { completa: completion.etapa1, campos: { rg: provider.rg, telefone: provider.telefone, estado: provider.estado, cidade: provider.cidade, cep: provider.cep } },
       etapa2: { completa: completion.etapa2, campos: { estadoInteresse: provider.estadoInteresse, cidadeInteresse: provider.cidadeInteresse, categorias: provider.categorias } },
       etapa3: { completa: completion.etapa3, campos: { referencias: provider.referencias } },
       etapa4: { completa: completion.etapa4, campos: { pixTipo: provider.pixTipo, pixChave: provider.pixChave, bancoNome: provider.bancoNome } },
@@ -258,12 +259,12 @@ Responda SEMPRE em português brasileiro com linguagem natural e amigável.`;
     if (/quero.*cadastr|completar.*cadastr|iniciar.*cadastr|começar.*cadastr|fazer.*cadastr|começar.*meu.*cadastr/i.test(message)) {
       // Se digitou "começar" ou "iniciar", sempre voltar para ETAPA 1 (mesmo que tenha dados)
       if (/começar|iniciar|quero começar/i.test(message)) {
-        return '👋 Perfeito! Vamos começar seu cadastro profissional.\n\n📋 **ETAPA 1 de 5: Informações Pessoais e Endereço**\n\nPara começar, preciso de:\n\n1. Número do seu **RG**\n2. **Estado** e **Cidade** onde você mora\n3. **CEP**\n4. **Bairro**, **Logradouro** e **Número**\n\nExemplo: "RG: 123456789, Estado: SP, Cidade: São Paulo, CEP: 01310-100, Bairro: Bela Vista, Rua: Av Paulista, Número: 1000"\n\nPode me enviar tudo em uma única mensagem! 😊';
+        return '👋 Perfeito! Vamos começar seu cadastro profissional.\n\n📋 **ETAPA 1 de 5: Informações Pessoais e Endereço**\n\nPara começar, preciso de:\n\n1. Número do seu **RG**\n2. **Telefone** para contato\n3. **Estado** e **Cidade** onde você mora\n4. **CEP**\n5. **Bairro**, **Logradouro** e **Número**\n\nExemplo: "RG: 123456789, Telefone: (11) 99999-9999, Estado: SP, Cidade: São Paulo, CEP: 01310-100, Bairro: Bela Vista, Rua: Av Paulista, Número: 1000"\n\nPode me enviar tudo em uma única mensagem! 😊';
       }
       
       // Se digitou apenas "completar cadastro", continuar de onde parou
       if (!completion.etapa1) {
-        return '👋 Perfeito! Vamos completar seu cadastro profissional.\n\n📋 **ETAPA 1 de 5: Informações Pessoais e Endereço**\n\nPara começar, preciso de:\n\n1. Número do seu **RG**\n2. **Estado** e **Cidade** onde você mora\n3. **CEP**\n4. **Bairro**, **Logradouro** e **Número**\n\nExemplo: "RG: 123456789, Estado: SP, Cidade: São Paulo, CEP: 01310-100, Bairro: Bela Vista, Rua: Av Paulista, Número: 1000"\n\nPode me enviar tudo em uma única mensagem! 😊';
+        return '👋 Perfeito! Vamos completar seu cadastro profissional.\n\n📋 **ETAPA 1 de 5: Informações Pessoais e Endereço**\n\nPara começar, preciso de:\n\n1. Número do seu **RG**\n2. **Telefone** para contato\n3. **Estado** e **Cidade** onde você mora\n4. **CEP**\n5. **Bairro**, **Logradouro** e **Número**\n\nExemplo: "RG: 123456789, Telefone: (11) 99999-9999, Estado: SP, Cidade: São Paulo, CEP: 01310-100, Bairro: Bela Vista, Rua: Av Paulista, Número: 1000"\n\nPode me enviar tudo em uma única mensagem! 😊';
       } else if (!completion.etapa2) {
         return '👋 Olá novamente! Vejo que você já começou seu cadastro.\n\n🗺️ **ETAPA 2 de 5: Região de Interesse e Serviços**\n\nAgora preciso saber:\n\n1. Em qual **Estado** e **Cidade** você deseja trabalhar?\n2. Qual(is) **categoria(s) de serviço** você oferece?\n\n**Categorias disponíveis:**\n- Eletricista\n- Encanador\n- Pedreiro\n- Pintor\n- Carpinteiro\n- Mecânico\n- Jardineiro\n- Limpeza\n- Consultoria\n\nExemplo: "Quero trabalhar em SP, São Paulo. Sou eletricista e encanador"';
       } else if (!completion.etapa3) {
@@ -279,7 +280,7 @@ Responda SEMPRE em português brasileiro com linguagem natural e amigável.`;
 
     // PRIMEIRA MENSAGEM: Guiar direto para ETAPA 1 (Informações Pessoais)
     if (historyLength === 1) {
-      return '👋 Olá! Sou a **Iguana**, sua assistente de cadastro da IguanaFix!\n\nVejo que você já completou seu cadastro básico. Agora vamos finalizar seu perfil profissional em algumas etapas simples.\n\n📋 **ETAPA 1 de 5: Informações Pessoais e Endereço**\n\nPara começar, preciso de:\n\n1. Número do seu **RG**\n2. **Estado** e **Cidade** onde você mora\n3. **CEP**\n4. **Bairro**, **Logradouro** e **Número**\n\nExemplo: "RG: 123456789, Estado: SP, Cidade: São Paulo, CEP: 01310-100, Bairro: Bela Vista, Rua: Av Paulista, Número: 1000"\n\nPode me enviar tudo em uma única mensagem! 😊';
+      return '👋 Olá! Sou a **Iguana**, sua assistente de cadastro da IguanaFix!\n\nVejo que você já completou seu cadastro básico. Agora vamos finalizar seu perfil profissional em algumas etapas simples.\n\n📋 **ETAPA 1 de 5: Informações Pessoais e Endereço**\n\nPara começar, preciso de:\n\n1. Número do seu **RG**\n2. **Telefone** para contato\n3. **Estado** e **Cidade** onde você mora\n4. **CEP**\n5. **Bairro**, **Logradouro** e **Número**\n\nExemplo: "RG: 123456789, Telefone: (11) 99999-9999, Estado: SP, Cidade: São Paulo, CEP: 01310-100, Bairro: Bela Vista, Rua: Av Paulista, Número: 1000"\n\nPode me enviar tudo em uma única mensagem! 😊';
     }
 
     // CONFIRMAÇÃO PARA AVANÇAR ETAPAS
@@ -311,7 +312,7 @@ Responda SEMPRE em português brasileiro com linguagem natural e amigável.`;
     // Detectar solicitação explícita de etapa - mas verificar se pode ir para ela
     if (/etapa\s*2|região|categorias|serviços|trabalhar onde/i.test(message) && !(/eletricista|encanador|pedreiro/i.test(message))) {
       if (!completion.etapa1) {
-        return '⚠️ **Ops!** Você ainda precisa completar a **ETAPA 1** antes.\n\n📋 Preciso das suas informações pessoais:\n- RG\n- Estado e Cidade\n- CEP\n- Bairro, Logradouro e Número\n\nPor favor, me envie esses dados primeiro! 😊';
+        return '⚠️ **Ops!** Você ainda precisa completar a **ETAPA 1** antes.\n\n📋 Preciso das suas informações pessoais:\n- RG\n- Telefone\n- Estado e Cidade\n- CEP\n- Bairro, Logradouro e Número\n\nPor favor, me envie esses dados primeiro! 😊';
       }
       return '✅ Entendido! Vamos para a **ETAPA 2**.\n\n🗺️ **ETAPA 2: Região de Interesse e Serviços**\n\nAgora preciso saber:\n\n1. Em qual **Estado** e **Cidade** você deseja trabalhar? (pode ser diferente do seu endereço)\n2. Qual(is) **categoria(s) de serviço** você oferece?\n\n**Categorias disponíveis:**\n- Eletricista\n- Encanador\n- Pedreiro\n- Pintor\n- Carpinteiro\n- Mecânico\n- Jardineiro\n- Limpeza\n- Consultoria\n\nExemplo: "Quero trabalhar em SP, São Paulo. Sou eletricista e encanador"';
     }
@@ -351,7 +352,7 @@ Responda SEMPRE em português brasileiro com linguagem natural e amigável.`;
 
     // Sempre permitir voltar para qualquer ETAPA
     if (/etapa\s*1|informações pessoais|começar|reiniciar|rg\s*\?|endereço\s*\?/i.test(message)) {
-      return `📋 **ETAPA 1 de 5: Informações Pessoais e Endereço**\n\n**Dados atuais:**\n${provider.rg ? `✅ RG: ${provider.rg}` : '❌ RG'}\n${provider.estado && provider.cidade ? `✅ ${provider.cidade}/${provider.estado}` : '❌ Estado/Cidade'}\n${provider.cep ? `✅ CEP: ${provider.cep}` : '❌ CEP'}\n${provider.bairro && provider.logradouro ? `✅ ${provider.logradouro}, ${provider.numero}` : '❌ Endereço'}\n\nEnvie os dados para atualizar:\n**Exemplo:** "RG: 123456789, Estado: SP, Cidade: São Paulo, CEP: 01310-100, Bairro: Bela Vista, Rua: Av Paulista, Número: 1000"`;
+      return `📋 **ETAPA 1 de 5: Informações Pessoais e Endereço**\n\n**Dados atuais:**\n${provider.rg ? `✅ RG: ${provider.rg}` : '❌ RG'}\n${provider.telefone ? `✅ Telefone: ${provider.telefone}` : '❌ Telefone'}\n${provider.estado && provider.cidade ? `✅ ${provider.cidade}/${provider.estado}` : '❌ Estado/Cidade'}\n${provider.cep ? `✅ CEP: ${provider.cep}` : '❌ CEP'}\n${provider.bairro && provider.logradouro ? `✅ ${provider.logradouro}, ${provider.numero}` : '❌ Endereço'}\n\nEnvie os dados para atualizar:\n**Exemplo:** "RG: 123456789, Telefone: (11) 99999-9999, Estado: SP, Cidade: São Paulo, CEP: 01310-100, Bairro: Bela Vista, Rua: Av Paulista, Número: 1000"`;
     }
 
     // CONCLUSÃO FINAL: Após confirmar uploads (aceitar mesmo sem arquivos para testes)
@@ -368,6 +369,7 @@ Responda SEMPRE em português brasileiro com linguagem natural e amigável.`;
       if (!completion.etapa1) {
         const missing = [];
         if (!provider.rg) missing.push('RG');
+        if (!provider.telefone) missing.push('Telefone');
         if (!provider.estado) missing.push('Estado');
         if (!provider.cidade) missing.push('Cidade');
         if (!provider.cep) missing.push('CEP');
@@ -375,10 +377,10 @@ Responda SEMPRE em português brasileiro com linguagem natural e amigável.`;
         if (!provider.logradouro) missing.push('Logradouro');
         if (!provider.numero) missing.push('Número');
         
-        return `⚠️ **Ainda faltam algumas informações da ETAPA 1:**\n\n${missing.map(f => `❌ ${f}`).join('\n')}\n\nPor favor, me envie os dados que faltam! 😊\n\n**Exemplo:** "RG: 123456789, CEP: 01310-100, Bairro: Centro"`;
+        return `⚠️ **Ainda faltam algumas informações da ETAPA 1:**\n\n${missing.map(f => `❌ ${f}`).join('\n')}\n\nPor favor, me envie os dados que faltam! 😊\n\n**Exemplo:** "RG: 123456789, Telefone: (11) 99999-9999, CEP: 01310-100, Bairro: Centro"`;
       }
       
-      return `✅ Perfeito! Dados salvos:\n• RG: ${provider.rg}\n• ${provider.cidade}/${provider.estado}\n• CEP: ${provider.cep}\n\n📋 Digite **"confirmar"** para ir para ETAPA 2 ou **"etapa 1"** para ajustar algo.`;
+      return `✅ Perfeito! Dados salvos:\n• RG: ${provider.rg}\n• Telefone: ${provider.telefone}\n• ${provider.cidade}/${provider.estado}\n• CEP: ${provider.cep}\n\n📋 Digite **"confirmar"** para ir para ETAPA 2 ou **"etapa 1"** para ajustar algo.`;
     }
 
     // ETAPA 2 → ETAPA 3: Validar completude antes de avançar
