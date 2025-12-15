@@ -4,7 +4,7 @@
 ### Use Ctrl+Alt+R (Windows) ou Cmd+Alt+R (Mac) para executar
 ### Ou clique em "Send Request" acima de cada requisição
 
-@baseUrl = http://localhost:3001
+@baseUrl = https://kw4d0mgz-3001.brs.devtunnels.ms
 @token = seu_token_aqui
 
 ### ========================================
