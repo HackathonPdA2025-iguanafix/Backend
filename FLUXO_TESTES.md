@@ -58,7 +58,7 @@ Authorization: Bearer SEU_TOKEN_AQUI
 **Resposta Esperada:**
 ```json
 {
-  "response": "👋 Olá! Sou a **Iamanos**, sua assistente de cadastro da IguanaFix!\n\n📋 **ETAPA 1: Informações Pessoais e Endereço**...",
+  "response": "👋 Olá! Sou a **Iguana**, sua assistente de cadastro da IguanaFix!\n\n📋 **ETAPA 1: Informações Pessoais e Endereço**...",
   "extractedData": {},
   "conversationHistory": [...]
 }
@@ -235,7 +235,7 @@ Authorization: Bearer SEU_TOKEN_AQUI
     },
     {
       "role": "assistant",
-      "content": "👋 Olá! Sou a **Iamanos**...",
+      "content": "👋 Olá! Sou a **Iguana**...",
       "timestamp": "2025-12-14T..."
     }
   ]
