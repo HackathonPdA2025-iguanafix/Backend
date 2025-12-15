@@ -14,7 +14,7 @@
 
 #### Etapa 2: Completar Perfil via Chatbot
 - **Endpoint**: `POST /chatbot/chat` (requer autenticação)
-- Assistente IA (Iamanos) guia o usuário através de:
+- Assistente IA (Iguana) guia o usuário através de:
   - Fotos e documentos
   - Informações pessoais e endereço
   - Região de interesse e serviços

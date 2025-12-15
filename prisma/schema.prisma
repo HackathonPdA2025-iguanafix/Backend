@@ -26,6 +26,7 @@ model Provider {
   
   // Seção 2: Informações Pessoais e Endereço
   rg            String?
+  telefone      String?
   estado        String?
   cidade        String?
   cep           String?

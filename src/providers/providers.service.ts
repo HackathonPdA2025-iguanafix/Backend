@@ -65,4 +65,25 @@ export class ProvidersService {
       },
     });
   }
+
+  async update(id: string, data: any) {
+    const provider = await this.prisma.provider.findUnique({
+      where: { id },
+    });
+
+    if (!provider) {
+      throw new NotFoundException('Prestador não encontrado');
+    }
+
+    // Remover campos que não podem ser atualizados ou que não existem no schema
+    const { cpf, senha, telefone, id: _, ...updateData } = data;
+    
+    return this.prisma.provider.update({
+      where: { id },
+      data: {
+        ...updateData,
+        updatedAt: new Date(),
+      },
+    });
+  }
 }

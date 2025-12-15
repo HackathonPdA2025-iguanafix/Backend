@@ -7,9 +7,13 @@ import { z } from 'zod';
 // Novo schema simplificado para o formulário inicial
 const RegisterSchema = z.object({
   email: z.string().email({ message: 'E-mail inválido' }),
-  senha: z.string().min(6, { message: 'Senha deve ter no mínimo 6 caracteres' }),
+  senha: z.string().min(6, { message: 'Senha deve ter no mínimo 6 caracteres' }).optional(),
+  password: z.string().min(6, { message: 'Senha deve ter no mínimo 6 caracteres' }).optional(),
   nome: z.string().min(3, { message: 'Nome deve ter no mínimo 3 caracteres' }),
-  cpf: z.string().regex(/^\d{11}$/, { message: 'CPF deve ter 11 dígitos' }),
+  cpf: z.string().transform(val => val.replace(/\D/g, '')).refine(val => val.length === 11, { message: 'CPF deve ter 11 dígitos' }),
+}).refine(data => data.senha || data.password, {
+  message: 'Senha é obrigatória',
+  path: ['senha'],
 });
 
 const LoginSchema = z.object({
@@ -27,17 +31,29 @@ export class AuthService {
   async register(data: any) {
     try {
       const validated = RegisterSchema.parse(data);
+      
+      // Aceitar 'password' ou 'senha'
+      const senha = validated.password || validated.senha;
 
       // Verificar se email já existe
-      const existingProvider = await this.prisma.provider.findUnique({
+      const existingEmail = await this.prisma.provider.findUnique({
         where: { email: validated.email },
       });
 
-      if (existingProvider) {
+      if (existingEmail) {
         throw new BadRequestException('Email já registrado');
       }
 
-      const hashedPassword = await bcrypt.hash(validated.senha, 10);
+      // Verificar se CPF já existe
+      const existingCpf = await this.prisma.provider.findUnique({
+        where: { cpf: validated.cpf },
+      });
+
+      if (existingCpf) {
+        throw new BadRequestException('CPF já registrado');
+      }
+
+      const hashedPassword = await bcrypt.hash(senha!, 10);
 
       // Criar provider com apenas dados básicos
       const provider = await this.prisma.provider.create({
@@ -60,7 +76,9 @@ export class AuthService {
         provider: {
           id: provider.id,
           email: provider.email,
+          name: provider.nome,
           nome: provider.nome,
+          cpf: provider.cpf,
           status: provider.status,
           cadastroCompleto: (provider as any).cadastroCompleto,
         },
@@ -102,7 +120,9 @@ export class AuthService {
         provider: {
           id: provider.id,
           email: provider.email,
+          name: provider.nome,
           nome: provider.nome,
+          cpf: provider.cpf,
           status: provider.status,
         },
       };
@@ -126,10 +146,20 @@ throw new BadRequestException(error.issues[0].message);
     return {
       id: provider.id,
       email: provider.email,
+      name: provider.nome,
       nome: provider.nome,
+      cpf: provider.cpf,
+      rg: provider.rg,
+      telefone: provider.telefone,
+      estado: provider.estado,
+      cidade: provider.cidade,
+      cep: provider.cep,
+      bairro: provider.bairro,
+      logradouro: provider.logradouro,
+      numero: provider.numero,
+      complemento: provider.complemento,
       status: provider.status,
       cadastroCompleto: (provider as any).cadastroCompleto,
-      cpf: (provider as any).cpf,
     };
   }
 }
